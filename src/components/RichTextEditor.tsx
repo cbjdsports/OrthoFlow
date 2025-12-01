@@ -9,29 +9,35 @@ interface RichTextEditorProps {
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, label }) => {
   const contentRef = useRef<HTMLDivElement>(null);
+  const isTypingRef = useRef(false);
 
   useEffect(() => {
-    // Check if the content is effectively different to avoid cursor jumping loops
-    if (contentRef.current && contentRef.current.innerHTML !== value) {
-        // Only update if we are NOT currently typing in this box (not the active element)
-        // This ensures that when we click "Edit", the data loads, 
-        // but when we type, we don't overwrite our own cursor position.
-        if (document.activeElement !== contentRef.current) {
-             contentRef.current.innerHTML = value;
+    // Only update the DOM if the value has changed EXTERNALLY (e.g., loading a saved visit)
+    // and we are NOT currently typing in it.
+    if (contentRef.current) {
+        if (contentRef.current.innerHTML !== value) {
+             // We check if the active element is this editor to avoid overwriting while typing
+             // However, with the dangerouslySetInnerHTML removed from render, 
+             // we need to be careful to ensure data loads.
+             if (!isTypingRef.current && document.activeElement !== contentRef.current) {
+                 contentRef.current.innerHTML = value;
+             }
         }
     }
-  }, [value]); // Added value dependency so updates from parent (like loading a previous visit) reflect here.
+  }, [value]);
 
   const exec = (command: string, value: string = '') => {
     document.execCommand(command, false, value);
-    if (contentRef.current) {
-      onChange(contentRef.current.innerHTML);
-    }
+    handleInput(); // Trigger update immediately after command
   };
 
   const handleInput = () => {
     if (contentRef.current) {
+      isTypingRef.current = true;
       onChange(contentRef.current.innerHTML);
+      // Reset typing flag after a short delay to allow external updates again if needed
+      // though typically external updates happen on load, not during typing.
+      setTimeout(() => { isTypingRef.current = false; }, 100);
     }
   };
 
@@ -71,10 +77,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, label 
           ref={contentRef}
           contentEditable
           dir="ltr"
-          style={{ textAlign: 'left' }}
           className="p-3 min-h-[80px] outline-none text-sm max-h-[300px] overflow-y-auto text-left"
           onInput={handleInput}
-          dangerouslySetInnerHTML={{ __html: value }}
+          onBlur={() => { isTypingRef.current = false; }}
+          style={{ textAlign: 'left', direction: 'ltr' }}
         />
       </div>
     </div>
