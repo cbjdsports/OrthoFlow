@@ -9,17 +9,14 @@ interface RichTextEditorProps {
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, label }) => {
   const contentRef = useRef<HTMLDivElement>(null);
-  const isTypingRef = useRef(false);
 
   useEffect(() => {
-    // Only update the DOM if the value has changed EXTERNALLY (e.g., loading a saved visit)
-    // and we are NOT currently typing in it.
+    // CRITICAL FIX: Only update innerHTML if the element is NOT focused.
+    // This prevents React from overwriting the DOM while the user is typing,
+    // which causes the cursor to jump to the beginning.
     if (contentRef.current) {
-        if (contentRef.current.innerHTML !== value) {
-             // We check if the active element is this editor to avoid overwriting while typing
-             // However, with the dangerouslySetInnerHTML removed from render, 
-             // we need to be careful to ensure data loads.
-             if (!isTypingRef.current && document.activeElement !== contentRef.current) {
+        if (document.activeElement !== contentRef.current) {
+             if (contentRef.current.innerHTML !== value) {
                  contentRef.current.innerHTML = value;
              }
         }
@@ -28,16 +25,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, label 
 
   const exec = (command: string, value: string = '') => {
     document.execCommand(command, false, value);
-    handleInput(); // Trigger update immediately after command
+    handleInput(); 
   };
 
   const handleInput = () => {
     if (contentRef.current) {
-      isTypingRef.current = true;
       onChange(contentRef.current.innerHTML);
-      // Reset typing flag after a short delay to allow external updates again if needed
-      // though typically external updates happen on load, not during typing.
-      setTimeout(() => { isTypingRef.current = false; }, 100);
     }
   };
 
@@ -79,7 +72,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, label 
           dir="ltr"
           className="p-3 min-h-[80px] outline-none text-sm max-h-[300px] overflow-y-auto text-left"
           onInput={handleInput}
-          onBlur={() => { isTypingRef.current = false; }}
           style={{ textAlign: 'left', direction: 'ltr' }}
         />
       </div>
