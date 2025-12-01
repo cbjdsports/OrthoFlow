@@ -66,14 +66,14 @@ export const Login: React.FC<LoginProps> = ({ users, onLogin }) => {
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-gray-100">
+        {/* <div className="mt-8 pt-6 border-t border-gray-100">
            <p className="text-xs text-center text-gray-400">Default Logins:</p>
            <div className="flex justify-center gap-4 mt-2 text-xs text-gray-500">
              <span>recep / 123</span>
              <span>doc1 / 123</span>
              <span>doc2 / 123</span>
            </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
