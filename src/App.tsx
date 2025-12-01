@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { loadConfig, saveConfig, clearConfig, AppConfig } from './services/storage';
 import { hasHardcodedConfig } from './config';
 import { 
@@ -20,7 +20,7 @@ import { User, Patient, UserRole, ExamData } from './types';
 import { Login } from './components/Auth';
 import { ExamForm } from './components/ExamForm';
 import { PrintView } from './components/PrintView';
-import { LogOut, Calendar, Search, Plus, Database, Settings, Users, ChevronDown, Lock, ShieldAlert, User as UserIcon } from 'lucide-react';
+import { LogOut, Calendar, Search, Plus, Database, Settings, Users, ChevronDown, Lock, User as UserIcon } from 'lucide-react';
 
 // --- Location Data for Nepal ---
 const NEPAL_LOCATIONS: Record<string, Record<string, string[]>> = {
