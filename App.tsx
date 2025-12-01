@@ -559,8 +559,8 @@ export default function App() {
       {/* Navbar */}
       <nav className="bg-white shadow px-6 py-3 flex justify-between items-center z-10">
         <div className="flex items-center gap-2">
-           <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">M</div>
-           <span className="text-xl font-bold text-gray-800 tracking-tight">MediFlow</span>
+           <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">O</div>
+           <span className="text-xl font-bold text-gray-800 tracking-tight">OrthoFlow</span>
            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded ml-2">Online</span>
         </div>
         <div className="flex items-center gap-6">
