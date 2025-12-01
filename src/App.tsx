@@ -12,6 +12,7 @@ import {
   addUserToDb,
   deleteUserFromDb,
   updateUserPassword,
+  updateUserProfile,
   checkUsernameExists,
   seedDefaultUserIfNeeded
 } from './services/firebase';
@@ -19,7 +20,7 @@ import { User, Patient, UserRole, ExamData } from './types';
 import { Login } from './components/Auth';
 import { ExamForm } from './components/ExamForm';
 import { PrintView } from './components/PrintView';
-import { LogOut, Calendar, Search, Plus, Database, Settings, Users, ChevronDown, Lock, ShieldAlert } from 'lucide-react';
+import { LogOut, Calendar, Search, Plus, Database, Settings, Users, ChevronDown, Lock, ShieldAlert, User as UserIcon } from 'lucide-react';
 
 // --- Location Data for Nepal ---
 const NEPAL_LOCATIONS: Record<string, Record<string, string[]>> = {
@@ -248,56 +249,90 @@ const RegistrationModal = ({
   );
 };
 
-const ChangePasswordModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose: () => void, user: User }) => {
+const ProfileModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose: () => void, user: User }) => {
+    const [fullName, setFullName] = useState(user.fullName);
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
     
+    // Reset state when modal opens
+    useEffect(() => {
+        if(isOpen) {
+            setFullName(user.fullName);
+            setPasswords({ current: '', new: '', confirm: '' });
+        }
+    }, [isOpen, user]);
+
     if (!isOpen) return null;
 
-    const handleChange = async () => {
-        if (passwords.new !== passwords.confirm) {
-            alert("New passwords do not match");
-            return;
-        }
-        if (passwords.new.length < 4) {
-             alert("Password must be at least 4 characters");
-             return;
-        }
-        if (user.password && passwords.current !== user.password) {
-            alert("Incorrect current password");
+    const handleUpdateProfile = async () => {
+        if (!fullName.trim()) {
+            alert("Full Name cannot be empty");
             return;
         }
 
         try {
-            await updateUserPassword(user.id, passwords.new);
-            alert("Password updated successfully");
+            await updateUserProfile(user.id, fullName);
+            
+            // Only update password if fields are filled
+            if (passwords.new) {
+                if (passwords.new !== passwords.confirm) {
+                    alert("New passwords do not match");
+                    return;
+                }
+                if (passwords.new.length < 4) {
+                     alert("Password must be at least 4 characters");
+                     return;
+                }
+                if (user.password && passwords.current !== user.password) {
+                    alert("Incorrect current password");
+                    return;
+                }
+                await updateUserPassword(user.id, passwords.new);
+            }
+            
+            alert("Profile updated successfully");
             onClose();
-            setPasswords({ current: '', new: '', confirm: '' });
         } catch (e) {
-            alert("Error updating password");
+            alert("Error updating profile: " + e);
         }
     };
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
              <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Lock size={20}/> Change Password</h2>
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><UserIcon size={20}/> My Profile</h2>
+                
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Current Password</label>
-                        <input type="password" className="w-full border p-2 rounded" value={passwords.current} onChange={e => setPasswords({...passwords, current: e.target.value})} />
+                    <div className="p-3 bg-gray-50 rounded border text-sm text-gray-600">
+                        <p><strong>Username:</strong> {user.username}</p>
+                        <p><strong>Role:</strong> {user.role}</p>
                     </div>
+
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">New Password</label>
-                        <input type="password" className="w-full border p-2 rounded" value={passwords.new} onChange={e => setPasswords({...passwords, new: e.target.value})} />
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Full Name</label>
+                        <input type="text" className="w-full border p-2 rounded" value={fullName} onChange={e => setFullName(e.target.value)} />
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Confirm New Password</label>
-                        <input type="password" className="w-full border p-2 rounded" value={passwords.confirm} onChange={e => setPasswords({...passwords, confirm: e.target.value})} />
+
+                    <div className="border-t pt-4 mt-2">
+                        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2"><Lock size={14}/> Change Password (Optional)</h3>
+                        <div className="space-y-2">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Current Password</label>
+                                <input type="password" className="w-full border p-2 rounded" value={passwords.current} onChange={e => setPasswords({...passwords, current: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">New Password</label>
+                                <input type="password" className="w-full border p-2 rounded" value={passwords.new} onChange={e => setPasswords({...passwords, new: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Confirm New Password</label>
+                                <input type="password" className="w-full border p-2 rounded" value={passwords.confirm} onChange={e => setPasswords({...passwords, confirm: e.target.value})} />
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="mt-6 flex justify-end gap-2">
                     <button onClick={onClose} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={handleChange} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update</button>
+                    <button onClick={handleUpdateProfile} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
                 </div>
              </div>
         </div>
@@ -479,7 +514,7 @@ export default function App() {
   // Modals
   const [isRegModalOpen, setRegModalOpen] = useState(false);
   const [isUserModalOpen, setUserModalOpen] = useState(false);
-  const [isChangePassOpen, setChangePassOpen] = useState(false);
+  const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   
   const [activePatient, setActivePatient] = useState<Patient | null>(null);
   const [completedExamData, setCompletedExamData] = useState<ExamData | null>(null);
@@ -657,8 +692,8 @@ export default function App() {
 
              {userMenuOpen && (
                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border z-20 overflow-hidden">
-                    <button onClick={() => { setChangePassOpen(true); setUserMenuOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700">
-                        <Lock size={16} /> Change Password
+                    <button onClick={() => { setProfileModalOpen(true); setUserMenuOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700">
+                        <UserIcon size={16} /> My Profile
                     </button>
                     <button onClick={handleLogout} className="w-full text-left px-4 py-3 hover:bg-red-50 flex items-center gap-2 text-sm text-red-600 border-t">
                         <LogOut size={16} /> Logout
@@ -813,9 +848,9 @@ export default function App() {
       />
 
       {currentUser && (
-        <ChangePasswordModal 
-          isOpen={isChangePassOpen} 
-          onClose={() => setChangePassOpen(false)} 
+        <ProfileModal 
+          isOpen={isProfileModalOpen} 
+          onClose={() => setProfileModalOpen(false)} 
           user={currentUser} 
         />
       )}
