@@ -29,8 +29,8 @@ export const Login: React.FC<LoginProps> = ({ users, onLogin }) => {
           <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white mb-4 shadow-lg">
             <Stethoscope size={32} />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800">MediFlow EHR</h1>
-          <p className="text-gray-500 mt-2 text-center">Secure Access for Medical Professionals</p>
+          <h1 className="text-3xl font-bold text-gray-800">OrthoFlow</h1>
+          <p className="text-gray-500 mt-2 text-center">Center for Bone and Joint Disease</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -67,7 +67,7 @@ export const Login: React.FC<LoginProps> = ({ users, onLogin }) => {
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-           <p className="text-xs text-gray-400">Restricted Area. Authorized Personnel Only.</p>
+           <p className="text-xs text-gray-400">©Pranodan Poudel</p>
         </div>
       </div>
     </div>
