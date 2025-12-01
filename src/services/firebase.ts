@@ -2,7 +2,6 @@ import { initializeApp, FirebaseApp } from 'firebase/app';
 import { 
   getFirestore, 
   collection, 
-  addDoc, 
   onSnapshot, 
   doc, 
   updateDoc, 
@@ -11,6 +10,7 @@ import {
   setDoc,
   deleteDoc,
   getDocs,
+  where,
   Firestore
 } from 'firebase/firestore';
 import { Patient, ExamData, User, UserRole } from '../types';
@@ -31,7 +31,8 @@ export const initFirebase = (config: any) => {
   }
 };
 
-// --- Users ---
+// --- USERS MANAGEMENT ---
+
 export const subscribeUsers = (onUpdate: (users: User[]) => void) => {
   if (!db) return () => {};
   const q = query(collection(db, 'users'));
@@ -51,6 +52,24 @@ export const deleteUserFromDb = async (userId: string) => {
     await deleteDoc(doc(db, 'users', userId));
 };
 
+// Exported explicitly to fix build errors
+export const updateUserPassword = async (userId: string, newPassword: string) => {
+  if (!db) throw new Error("DB not initialized");
+  await updateDoc(doc(db, 'users', userId), { password: newPassword });
+};
+
+export const updateUserProfile = async (userId: string, fullName: string) => {
+  if (!db) throw new Error("DB not initialized");
+  await updateDoc(doc(db, 'users', userId), { fullName });
+};
+
+export const checkUsernameExists = async (username: string): Promise<boolean> => {
+  if (!db) return false;
+  const q = query(collection(db, 'users'), where("username", "==", username));
+  const snapshot = await getDocs(q);
+  return !snapshot.empty;
+};
+
 export const seedDefaultUserIfNeeded = async () => {
     if (!db) return;
     const q = query(collection(db, 'users'));
@@ -67,7 +86,8 @@ export const seedDefaultUserIfNeeded = async () => {
     }
 };
 
-// --- Patients ---
+// --- PATIENTS ---
+
 export const subscribePatients = (onUpdate: (patients: Patient[]) => void) => {
   if (!db) return () => {};
   const q = query(collection(db, 'patients'), orderBy('regDate', 'desc'));
@@ -87,7 +107,8 @@ export const updatePatientStatusInDb = async (patientId: string, status: string)
   await updateDoc(doc(db, 'patients', patientId), { status });
 };
 
-// --- Visits ---
+// --- VISITS ---
+
 export const subscribeVisits = (onUpdate: (visits: ExamData[]) => void) => {
   if (!db) return () => {};
   const q = query(collection(db, 'visits'), orderBy('visitDate', 'desc'));
