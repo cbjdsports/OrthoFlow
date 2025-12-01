@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { loadConfig, saveConfig, clearConfig, AppConfig } from './services/storage';
 import { hasHardcodedConfig } from './config';
 import { 
@@ -11,13 +11,15 @@ import {
   subscribeUsers,
   addUserToDb,
   deleteUserFromDb,
+  updateUserPassword,
+  checkUsernameExists,
   seedDefaultUserIfNeeded
 } from './services/firebase';
 import { User, Patient, UserRole, ExamData } from './types';
 import { Login } from './components/Auth';
 import { ExamForm } from './components/ExamForm';
 import { PrintView } from './components/PrintView';
-import { LogOut, Calendar, Search, Plus, Database, Settings, Users } from 'lucide-react';
+import { LogOut, Calendar, Search, Plus, Database, Settings, Users, ChevronDown, Lock, ShieldAlert } from 'lucide-react';
 
 // --- Location Data for Nepal ---
 const NEPAL_LOCATIONS: Record<string, Record<string, string[]>> = {
@@ -246,15 +248,81 @@ const RegistrationModal = ({
   );
 };
 
+const ChangePasswordModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose: () => void, user: User }) => {
+    const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+    
+    if (!isOpen) return null;
+
+    const handleChange = async () => {
+        if (passwords.new !== passwords.confirm) {
+            alert("New passwords do not match");
+            return;
+        }
+        if (passwords.new.length < 4) {
+             alert("Password must be at least 4 characters");
+             return;
+        }
+        if (user.password && passwords.current !== user.password) {
+            alert("Incorrect current password");
+            return;
+        }
+
+        try {
+            await updateUserPassword(user.id, passwords.new);
+            alert("Password updated successfully");
+            onClose();
+            setPasswords({ current: '', new: '', confirm: '' });
+        } catch (e) {
+            alert("Error updating password");
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+             <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Lock size={20}/> Change Password</h2>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Current Password</label>
+                        <input type="password" className="w-full border p-2 rounded" value={passwords.current} onChange={e => setPasswords({...passwords, current: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">New Password</label>
+                        <input type="password" className="w-full border p-2 rounded" value={passwords.new} onChange={e => setPasswords({...passwords, new: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Confirm New Password</label>
+                        <input type="password" className="w-full border p-2 rounded" value={passwords.confirm} onChange={e => setPasswords({...passwords, confirm: e.target.value})} />
+                    </div>
+                </div>
+                <div className="mt-6 flex justify-end gap-2">
+                    <button onClick={onClose} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button onClick={handleChange} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update</button>
+                </div>
+             </div>
+        </div>
+    )
+}
+
 const UserManagementModal = ({ isOpen, onClose, users }: { isOpen: boolean, onClose: () => void, users: User[] }) => {
     const [newUser, setNewUser] = useState<Partial<User>>({ role: UserRole.CONSULTANT });
-    
+    const [loading, setLoading] = useState(false);
+
     const handleAdd = async () => {
         if (!newUser.username || !newUser.password || !newUser.fullName) {
             alert("All fields required");
             return;
         }
+        setLoading(true);
+        
         try {
+            const exists = await checkUsernameExists(newUser.username);
+            if (exists) {
+                alert("Username already taken. Please choose another.");
+                setLoading(false);
+                return;
+            }
+
             await addUserToDb({
                 ...newUser,
                 id: crypto.randomUUID(),
@@ -262,12 +330,22 @@ const UserManagementModal = ({ isOpen, onClose, users }: { isOpen: boolean, onCl
             setNewUser({ role: UserRole.CONSULTANT, username: '', password: '', fullName: '' });
         } catch (e) {
             alert("Error adding user: " + e);
+        } finally {
+            setLoading(false);
         }
     }
 
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure?")) {
+        if (confirm("Are you sure you want to delete this user? This cannot be undone.")) {
             await deleteUserFromDb(id);
+        }
+    }
+
+    const handleResetPassword = async (id: string) => {
+        const newPass = prompt("Enter new password for this user:");
+        if (newPass) {
+            await updateUserPassword(id, newPass);
+            alert("Password updated");
         }
     }
 
@@ -287,7 +365,7 @@ const UserManagementModal = ({ isOpen, onClose, users }: { isOpen: boolean, onCl
                             <option value={UserRole.CONSULTANT}>Consultant</option>
                             <option value={UserRole.RECEPTIONIST}>Receptionist</option>
                         </select>
-                        <button onClick={handleAdd} className="bg-blue-600 text-white p-2 rounded">Add</button>
+                        <button onClick={handleAdd} disabled={loading} className="bg-blue-600 text-white p-2 rounded disabled:bg-gray-400">Add</button>
                     </div>
                 </div>
 
@@ -298,7 +376,7 @@ const UserManagementModal = ({ isOpen, onClose, users }: { isOpen: boolean, onCl
                                 <th className="p-2 text-left">Name</th>
                                 <th className="p-2 text-left">Username</th>
                                 <th className="p-2 text-left">Role</th>
-                                <th className="p-2 w-10"></th>
+                                <th className="p-2 w-20 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -307,8 +385,9 @@ const UserManagementModal = ({ isOpen, onClose, users }: { isOpen: boolean, onCl
                                     <td className="p-2">{u.fullName}</td>
                                     <td className="p-2">{u.username}</td>
                                     <td className="p-2">{u.role}</td>
-                                    <td className="p-2">
-                                        <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:text-red-700">Delete</button>
+                                    <td className="p-2 flex gap-2 justify-center">
+                                        <button onClick={() => handleResetPassword(u.id)} className="text-blue-500 hover:text-blue-700 text-xs underline">Reset Pass</button>
+                                        <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:text-red-700 text-xs underline">Delete</button>
                                     </td>
                                 </tr>
                             ))}
@@ -395,10 +474,12 @@ export default function App() {
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
   const [patientFilter, setPatientFilter] = useState<'ALL' | 'MY'>('MY');
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   
   // Modals
   const [isRegModalOpen, setRegModalOpen] = useState(false);
   const [isUserModalOpen, setUserModalOpen] = useState(false);
+  const [isChangePassOpen, setChangePassOpen] = useState(false);
   
   const [activePatient, setActivePatient] = useState<Patient | null>(null);
   const [completedExamData, setCompletedExamData] = useState<ExamData | null>(null);
@@ -452,6 +533,7 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     setView('LOGIN');
+    setUserMenuOpen(false);
   };
 
   const registerPatient = async (pData: Partial<Patient>) => {
@@ -564,13 +646,26 @@ export default function App() {
            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded ml-2">Online</span>
         </div>
         <div className="flex items-center gap-6">
-          <div className="flex flex-col text-right">
-             <span className="text-sm font-bold text-gray-800">{currentUser?.fullName}</span>
-             <span className="text-xs text-gray-500 uppercase">{currentUser?.role}</span>
+          <div className="relative">
+             <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 text-right hover:bg-gray-100 p-2 rounded transition">
+                 <div className="flex flex-col">
+                    <span className="text-sm font-bold text-gray-800">{currentUser?.fullName}</span>
+                    <span className="text-xs text-gray-500 uppercase">{currentUser?.role}</span>
+                 </div>
+                 <ChevronDown size={16} className="text-gray-500"/>
+             </button>
+
+             {userMenuOpen && (
+                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border z-20 overflow-hidden">
+                    <button onClick={() => { setChangePassOpen(true); setUserMenuOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700">
+                        <Lock size={16} /> Change Password
+                    </button>
+                    <button onClick={handleLogout} className="w-full text-left px-4 py-3 hover:bg-red-50 flex items-center gap-2 text-sm text-red-600 border-t">
+                        <LogOut size={16} /> Logout
+                    </button>
+                 </div>
+             )}
           </div>
-          <button onClick={handleLogout} className="p-2 hover:bg-gray-100 rounded-full text-gray-600" title="Logout">
-            <LogOut size={20} />
-          </button>
         </div>
       </nav>
 
@@ -716,6 +811,14 @@ export default function App() {
         onClose={() => setUserModalOpen(false)}
         users={dbUsers}
       />
+
+      {currentUser && (
+        <ChangePasswordModal 
+          isOpen={isChangePassOpen} 
+          onClose={() => setChangePassOpen(false)} 
+          user={currentUser} 
+        />
+      )}
     </div>
   );
 }
