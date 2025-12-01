@@ -495,15 +495,23 @@ const SetupScreen = ({ onSave }: { onSave: (config: any) => void }) => {
 export default function App() {
   const [appConfig, setAppConfig] = useState<AppConfig>(loadConfig());
   const [dbReady, setDbReady] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  // Persistent User Session
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('mediflow_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   
   // Data State
   const [dbUsers, setDbUsers] = useState<User[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [visits, setVisits] = useState<ExamData[]>([]);
 
-  // UI State
-  const [view, setView] = useState<'LOGIN' | 'DASHBOARD' | 'EXAM' | 'PRINT'>('LOGIN');
+  // UI State - Initialize based on user presence
+  const [view, setView] = useState<'LOGIN' | 'DASHBOARD' | 'EXAM' | 'PRINT'>(
+    currentUser ? 'DASHBOARD' : 'LOGIN'
+  );
+
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
@@ -553,6 +561,21 @@ export default function App() {
     }
   }, [dbReady]);
 
+  // Warning for Unsaved Changes in Exam Mode
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (view === 'EXAM') {
+        // Standard way to trigger browser confirmation
+        e.preventDefault(); 
+        e.returnValue = ''; 
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [view]);
+
   const handleConfigSave = (config: any) => {
      const newConfig = { firebaseConfig: config };
      saveConfig(newConfig);
@@ -560,12 +583,14 @@ export default function App() {
   };
 
   const handleLogin = (user: User) => {
+    localStorage.setItem('mediflow_user', JSON.stringify(user));
     setCurrentUser(user);
     setView('DASHBOARD');
     setPatientFilter(user.role === UserRole.RECEPTIONIST ? 'ALL' : 'MY');
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('mediflow_user');
     setCurrentUser(null);
     setView('LOGIN');
     setUserMenuOpen(false);
