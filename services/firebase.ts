@@ -52,6 +52,11 @@ export const updateUserPassword = async (userId: string, newPassword: string) =>
   await updateDoc(doc(db, 'users', userId), { password: newPassword });
 };
 
+export const updateUserProfile = async (userId: string, fullName: string) => {
+  if (!db) throw new Error("DB not initialized");
+  await updateDoc(doc(db, 'users', userId), { fullName });
+};
+
 export const checkUsernameExists = async (username: string): Promise<boolean> => {
   if (!db) return false;
   const q = query(collection(db, 'users'), where("username", "==", username));
