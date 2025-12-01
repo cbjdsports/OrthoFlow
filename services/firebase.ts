@@ -11,6 +11,7 @@ import {
   setDoc,
   deleteDoc,
   getDocs,
+  where,
   Firestore
 } from 'firebase/firestore';
 import { Patient, ExamData, User, UserRole } from '../types';
@@ -44,6 +45,18 @@ export const subscribeUsers = (onUpdate: (users: User[]) => void) => {
 export const addUserToDb = async (user: User) => {
   if (!db) throw new Error("DB not initialized");
   await setDoc(doc(db, 'users', user.id), user);
+};
+
+export const updateUserPassword = async (userId: string, newPassword: string) => {
+  if (!db) throw new Error("DB not initialized");
+  await updateDoc(doc(db, 'users', userId), { password: newPassword });
+};
+
+export const checkUsernameExists = async (username: string): Promise<boolean> => {
+  if (!db) return false;
+  const q = query(collection(db, 'users'), where("username", "==", username));
+  const snapshot = await getDocs(q);
+  return !snapshot.empty;
 };
 
 export const deleteUserFromDb = async (userId: string) => {
